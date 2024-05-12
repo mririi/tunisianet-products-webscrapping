@@ -2,7 +2,26 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import mysql.connector
+import re
 
+def extract_memory(name):
+    # Regular expression pattern to find storage information
+    pattern = r'(\d+)\s*Go'  # Assuming "Go" stands for gigabytes (GB)
+    match = re.search(pattern, name)
+    if match:
+        return match.group(1)  # Extracting the first matched group (storage size in GB)
+    else:
+        return 0  # Return None if storage information is not found
+    
+def extract_product_name(name):
+    # Regular expression pattern to extract the product name
+    pattern = r'Pc Portable (.+?) /'  # Extracts the text between "Pc Portable " and "/"
+    match = re.search(pattern, name)
+    if match:
+        return match.group(1)  # Extracting the matched group (product name)
+    else:
+        return "Product Name Not Available"
+    
 def save_to_database(products):
     try:
         db = mysql.connector.connect(
@@ -13,10 +32,10 @@ def save_to_database(products):
         )
         cursor = db.cursor()
 
-        cursor.execute("CREATE TABLE IF NOT EXISTS informations (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), url VARCHAR(255), price VARCHAR(255))")
+        cursor.execute("CREATE TABLE IF NOT EXISTS informations (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), url VARCHAR(255), price VARCHAR(255), memory VARCHAR(255))")
 
         for product in products:
-            cursor.execute("INSERT INTO informations (name, url, price) VALUES (%s, %s, %s)", (product['name'], product['link'], product['price']))
+            cursor.execute("INSERT INTO informations (name, url, price, memory) VALUES (%s, %s, %s, %s)", (product['name'], product['link'], product['price'], product['memory']))
 
         db.commit()
         print("Data saved successfully.")
@@ -50,8 +69,9 @@ def scrape_aliexpress():
             
             price_text = product_prices[i].text.strip()
             price_value = price_text.replace(' DT', '').replace(',', '')
-            
-            products.append({'name': product_name, 'link': product_link, 'price': price_value})
+            name = extract_product_name(product_name)
+            memory = extract_memory(product_name)
+            products.append({'name': name, 'link': product_link, 'price': price_value, 'memory': memory})
     else:
         print("Failed to fetch the page.")
     
